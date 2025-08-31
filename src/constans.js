@@ -1,0 +1,1 @@
+export const MONGODB_NAME="vk_database"
