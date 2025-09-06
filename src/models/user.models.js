@@ -85,7 +85,6 @@ UseSchema.methods.generateAccessToken= function (){
 
 
 
-
 UserSchema.methods.generateRefreashToken=function(){
     return jwt.sign({
         _id:this._id,
