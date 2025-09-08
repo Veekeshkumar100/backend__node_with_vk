@@ -57,7 +57,7 @@ const UseSchema= new Schema({
 
 UseSchema.pre("save",async function(next){
      if(!this.isModified("password")) return next();
-   this.password= bcrypt.hash(this.password, 12);
+   this.password= await bcrypt.hash(this.password, 12);
    next();
 })
 
@@ -67,8 +67,9 @@ UseSchema.methods.isPosswordCurrect=async function(password) {
 }
 
 
+
 UseSchema.methods.generateAccessToken= function (){
-      jwt.sign(
+    return  jwt.sign(
         {
            _id:this._id,
         email:this.email,
@@ -85,7 +86,7 @@ UseSchema.methods.generateAccessToken= function (){
 
 
 
-UserSchema.methods.generateRefreashToken=function(){
+UseSchema.methods.generateRefreashToken=function(){
     return jwt.sign({
         _id:this._id,
     },
@@ -97,4 +98,4 @@ UserSchema.methods.generateRefreashToken=function(){
 } 
 
 
-export const User = mongooss.model("User",UseSchema);
+export const User = mongoose.model("User",UseSchema);

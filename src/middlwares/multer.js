@@ -8,7 +8,7 @@ const randomString=()=>
    let result="";
    for(let i=0;i<=10;i++)
    {
-      result+=character.floor(Math.random()*character.length);
+      result+=character[Math.floor(Math.random()*character.length)];
    }
    return result;
 }
