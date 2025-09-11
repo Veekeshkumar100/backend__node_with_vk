@@ -1,10 +1,9 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
-
 import { uploadOnCloudnary } from "../utils/cloudinary.js";
 import { APiResponce } from "../utils/apiResponse.js";
-
 import { User } from "../models/user.models.js";
+import jwt  from "jsonwebtoken";
 
 
 const refreashtokenAndAccessToken=async(userId)=>{
@@ -12,9 +11,12 @@ const refreashtokenAndAccessToken=async(userId)=>{
     const user=await User.findById(userId);
     const accessToken= user.generateAccessToken();
     const refreashToken= user.generateRefreashToken();
-
-        user.refreashToken=refreashToken; 
-        await user.save({validateBeforeSave:true});
+    user.refreashToken=refreashToken; 
+    // console.log("user",user);
+    const refresh = await user.save({ validateBeforeSave : false });
+    // console.log("refresh",refresh)
+  
+    // console.log("accessToken,refreashToken",accessToken,refreashToken);
         return {accessToken,refreashToken};
   } catch (error) {
      console.log(error);
@@ -41,8 +43,8 @@ export const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All the field are required");
   }
 
-  console.log("file",req.files)
-   console.log("body",req.body)
+  // console.log("file",req.files)
+  //  console.log("body",req.body)
 
   const existingUser = await User.findOne({
     $or: [{ username }, { email }],
@@ -104,12 +106,18 @@ export const loginUser=asyncHandler(async (req, res) => {
   //find the user
   //validate the user data from se  rver register user
   //send the token to the user
-
+    //  console.log("veekesh")
      const {username,email,password}=req.body;
+    //  console.log(req.body);
      
-     if(!username || !email){
-      throw new ApiError(409,"username and email is required");
+     if((!username && !email)){
+      throw new ApiError(409,"username or  email is required");
      }
+
+
+    //  if(!(username || email)){
+    //   throw new ApiError(409,"username or  email is required");
+    //  }
 
      const user = await User.findOne({
       $or:[{username},{email}]
@@ -119,15 +127,19 @@ export const loginUser=asyncHandler(async (req, res) => {
       throw new ApiError(401,"username or email is not currect");
      }
 
-     const isPosswordCurrect= await user.isPosswordCurrect(password);
+     const isPosswordvalid= await user.isPosswordCurrect(password);
 
-     if(!isPosswordCurrect){
+
+     if(!isPosswordvalid){
       throw new ApiError(401,"password is not currect");
      }
 
-     const {accessToken,refreashToken}=refreashtokenAndAccessToken(user._id);
+     
+  
+     const {accessToken,refreashToken}= await refreashtokenAndAccessToken(user._id);
 
-     const loggedInUser=await User.findById(user._id).select("-passworn -refrenceToken");
+     console.log("accessToken,refreashToken",accessToken,refreashToken);
+     const loggedInUser=await User.findById(user._id).select("-password -refrenceToken");
 
      const option={
       httpOnly:true,
@@ -146,16 +158,12 @@ export const loginUser=asyncHandler(async (req, res) => {
       )
     )
 
-
-
-  
-
 })
 
 
 export const logoutUser=asyncHandler(async(req,res,next)=>{
   
-  await User.findById(req.user._id,
+   await User.findByIdAndUpdate(req.user._id,
     {
       $set: {refrenceToken:"undefind"}
     },
@@ -169,11 +177,45 @@ export const logoutUser=asyncHandler(async(req,res,next)=>{
       secure:true
      }
 
-
+// console.log(user);
      return res.status(200)
-     .clearCookie('accessToken',option)
+     .clearCookie('acccessToken',option)
      .clearCookie('refreashToken',option)
-     .json( new APiResponce(200,"user has logout succeesfuly"))
+     .json( new APiResponce(200,{},"user has logout succeesfuly") )
 
 
 })
+
+
+export const  refreashAccessToken=asyncHandler(async(req,res,next)=>{
+     console.log(req.cookies?.refreashToken);
+  const incommingRefreashToken= req.cookies?.refreashToken  || req.body.refreashToken;
+    if(!incommingRefreashToken){
+      throw new ApiError(401,"invailid refreash token");
+    }
+    console.log(incommingRefreashToken);
+
+     const decodedrefreashToken =  jwt.verify(incommingRefreashToken,process.env.REFRESH_TOKEN_SECRET);
+
+      if(!decodedrefreashToken){
+      throw new ApiError(401,"invailid refreash tokens");
+    }
+       console.log("decodedrefreashToken",decodedrefreashToken);
+
+       const user = await User.findById(decodedrefreashToken._id);
+   const {accessToken,refreashToken} = refreashtokenAndAccessToken(user._id);
+
+    console.log("const {accessToken,refreashToken}",accessToken,refreashToken);
+    
+     const option={
+      httpOnly:true,
+      secure:true
+     }
+
+     res.status(200)
+   .cookie("acccessToken",accessToken,option)
+    .cookie("refreashToken",refreashToken,option)
+     .json(200,{accessToken,refreashToken},"Access token refreashed");
+
+
+} )

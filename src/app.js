@@ -8,8 +8,8 @@ app.use(cors({
     methods:["GET","POST","PUT","DELETE"],
     credentials:true
 }))
-app.use(express.json({extended:true,limit:"50kd"}))
-app.use(cookieParser({limit:"50kd"}))
+app.use(express.json({extended:true,limit:"50mb"}))
+app.use(cookieParser({limit:"50mb"}))
 app.use(express.static('public'))
 
 
