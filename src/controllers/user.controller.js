@@ -11,12 +11,12 @@ const refreashtokenAndAccessToken=async(userId)=>{
     const user=await User.findById(userId);
     const accessToken= user.generateAccessToken();
     const refreashToken= user.generateRefreashToken();
-    user.refreashToken=refreashToken; 
+         user.refreashToken=refreashToken; 
     // console.log("user",user);
-    const refresh = await user.save({ validateBeforeSave : false });
-    // console.log("refresh",refresh)
-  
-    // console.log("accessToken,refreashToken",accessToken,refreashToken);
+    await user.save({ validateBeforeSave : false });
+    // console.log("refresh",refreshToken);
+
+    console.log("accessToken,refreashToken2",accessToken,refreashToken);
         return {accessToken,refreashToken};
   } catch (error) {
      console.log(error);
@@ -187,35 +187,49 @@ export const logoutUser=asyncHandler(async(req,res,next)=>{
 })
 
 
-export const  refreashAccessToken=asyncHandler(async(req,res,next)=>{
-     console.log(req.cookies?.refreashToken);
-  const incommingRefreashToken= req.cookies?.refreashToken  || req.body.refreashToken;
-    if(!incommingRefreashToken){
-      throw new ApiError(401,"invailid refreash token");
+export const  refreashAccessToken=asyncHandler(async(req, res) => {
+    try {
+        const incommingRefreashToken = req.cookies?.refreashToken || req.body.refreashToken;
+        
+        if (!incommingRefreashToken) {
+            throw new ApiError(401, "Invalid refresh token");
+        }
+
+        const decodedToken = jwt.verify(
+            incommingRefreashToken,
+            process.env.REFRESH_TOKEN_SECRET
+        );
+
+        const user = await User.findById(decodedToken?._id);
+        
+        if (!user) {
+            throw new ApiError(401, "User does not exist");
+        }
+
+        if (user.refreashToken !== incommingRefreashToken) {
+            throw new ApiError(401, "Refresh token is expired or used");
+        }
+
+        const {accessToken, refreashToken} = await refreashtokenAndAccessToken(user._id);
+
+        const options = {
+            httpOnly: true,
+            secure: true
+        };
+
+        return res
+            .status(200)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreashToken", refreashToken, options)
+            .json(
+                new APiResponce(
+                    200,
+                    { accessToken, refreashToken },
+                    "Access token refreshed successfully"
+                )
+            );
+
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Invalid refresh token");
     }
-    console.log(incommingRefreashToken);
-
-     const decodedrefreashToken =  jwt.verify(incommingRefreashToken,process.env.REFRESH_TOKEN_SECRET);
-
-      if(!decodedrefreashToken){
-      throw new ApiError(401,"invailid refreash tokens");
-    }
-       console.log("decodedrefreashToken",decodedrefreashToken);
-
-       const user = await User.findById(decodedrefreashToken._id);
-   const {accessToken,refreashToken} = refreashtokenAndAccessToken(user._id);
-
-    console.log("const {accessToken,refreashToken}",accessToken,refreashToken);
-    
-     const option={
-      httpOnly:true,
-      secure:true
-     }
-
-     res.status(200)
-   .cookie("acccessToken",accessToken,option)
-    .cookie("refreashToken",refreashToken,option)
-     .json(200,{accessToken,refreashToken},"Access token refreashed");
-
-
-} )
+});
