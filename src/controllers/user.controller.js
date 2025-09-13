@@ -249,7 +249,7 @@ export  const  changeCurrentPassword=asyncHandler(async(req,res,next)=>{
 
 })
 
-export const gerUser=asyncHandler(async(req,res,next)=>{
+export const getUser=asyncHandler(async(req,res,next)=>{
 
    return res.status(200).json(
     new APiResponce(200,req.user,"user is fetched succesfully")
@@ -264,14 +264,14 @@ export const updateUserDetailes=asyncHandler(async(req,res,next)=>{
      const user=await User.findByIdAndUpdate(req.user._id,{
       $set: {fullName,email}
      },
-    {new:true}).select("-password -refrenceToken");
+    {new:true}).select("-password ");
    return res.status(200).json(
     new APiResponce(200,user,"user is updated succesfully")
    )
 })
 
 
-export const updateUserAvatar=asyncHandeler(async(req,res,next)=>{
+export const updateUserAvatar=asyncHandler(async(req,res,next)=>{
   const avatarLocalPath=req.file?.path;
 
   if(!avatarLocalPath){
@@ -294,7 +294,7 @@ select("-password ");
 
   return res.status(200).json(200,user,"avatar has updated succesfully")
 })
-export const updateUserCoverImage=asyncHandeler(async(req,res,next)=>{
+export const updateUserCoverImage=asyncHandler(async(req,res,next)=>{
   const coverImageLocalPath=req.file?.path;
 
   if(!coverImageLocalPath){
@@ -316,4 +316,17 @@ export const updateUserCoverImage=asyncHandeler(async(req,res,next)=>{
 select("-password ");
 
   return res.status(200).json(200,user,"avatar has updated succesfully")
+})
+
+
+export const getUserChannelProfile=asyncHandler(async(req,res,next)=>{
+  const {ChannelName}=req.params;
+    if(!ChannelName){
+      throw new ApiError(400,"ChannelName is missing");
+    }
+
+    await User.aggregate([
+       $match() 
+    ])
+
 })
