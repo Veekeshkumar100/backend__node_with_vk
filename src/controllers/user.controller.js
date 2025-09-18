@@ -4,6 +4,7 @@ import { uploadOnCloudnary } from "../utils/cloudinary.js";
 import { APiResponce } from "../utils/apiResponse.js";
 import { User } from "../models/user.models.js";
 import jwt  from "jsonwebtoken";
+import mongoose from "mongoose";
 
 
 const refreashtokenAndAccessToken=async(userId)=>{
@@ -11,7 +12,7 @@ const refreashtokenAndAccessToken=async(userId)=>{
     const user=await User.findById(userId);
     const accessToken= user.generateAccessToken();
     const refreashToken= user.generateRefreashToken();
-         user.refreashToken=refreashToken; 
+         user.refrenceToken=refreashToken; 
     // console.log("user",user);
     await user.save({ validateBeforeSave : true });
     // console.log("refresh",refreshToken);
@@ -115,9 +116,7 @@ export const loginUser=asyncHandler(async (req, res) => {
      }
 
 
-    //  if(!(username || email)){
-    //   throw new ApiError(409,"username or  email is required");
-    //  }
+    
 
      const user = await User.findOne({
       $or:[{username},{email}]
@@ -128,6 +127,7 @@ export const loginUser=asyncHandler(async (req, res) => {
      }
 
      const isPosswordvalid= await user.isPosswordCurrect(password);
+       
 
 
      if(!isPosswordvalid){
@@ -139,12 +139,17 @@ export const loginUser=asyncHandler(async (req, res) => {
      const {accessToken,refreashToken}= await refreashtokenAndAccessToken(user._id);
 
      console.log("accessToken,refreashToken",accessToken,refreashToken);
-     const loggedInUser=await User.findById(user._id).select("-password -refrenceToken");
+     const loggedInUser=await User.findById(user._id
+      
+      
+     ).select("-password -refrenceToken");
+  
 
      const option={
       httpOnly:true,
       secure:true
      }
+
 
     return res.status(200)
     .cookie("acccessToken",accessToken,option)
@@ -165,7 +170,7 @@ export const logoutUser=asyncHandler(async(req,res,next)=>{
   
    await User.findByIdAndUpdate(req.user._id,
     {
-      $set: {refrenceToken:"undefind"}
+      $unset: {refrenceToken:1} //this rmon=ve the fiel from field
     },
     {
       new:true,
@@ -189,22 +194,26 @@ export const logoutUser=asyncHandler(async(req,res,next)=>{
 
 export const  refreashAccessToken=asyncHandler(async(req, res) => {
     try {
-        const incommingRefreashToken = req.cookies?.refreashToken || req.body.refreashToken;
+        const  incommingRefreashToken= req.cookies?.refreashToken || req.body.refreashToken;
         
         if (!incommingRefreashToken) {
             throw new ApiError(401, "Invalid refresh token");
         }
 
+      console.log(incommingRefreashToken)
+
         const decodedToken = jwt.verify(
             incommingRefreashToken,
             process.env.REFRESH_TOKEN_SECRET
         );
+        console.log(decodedToken);
 
         const user = await User.findById(decodedToken?._id);
         
         if (!user) {
             throw new ApiError(401, "User does not exist");
         }
+        console.log(user);
 
         if (user.refreashToken !== incommingRefreashToken) {
             throw new ApiError(401, "Refresh token is expired or used");
@@ -322,21 +331,22 @@ export const updateUserCoverImage=asyncHandler(async(req,res,next)=>{
       $set: {coverImage:coverImage.url}
     },
     {new:true}
-  ).
-select("-password ");
+  )
+.select("-password ");
+console.log(user);
 
   return res.status(200).json(200,user,"avatar has updated succesfully")
 })
 
 
 export const getUserChannelProfile=asyncHandler(async(req,res,next)=>{
-  const {ChannelName}=req.params;
-    if(!ChannelName){
+  const {username}=req.params;
+    if(!username){
       throw new ApiError(400,"ChannelName is missing");
     }
 
       const channel=await User.aggregate([
-        {$match:{ChannelName:ChannelName?.toLowerCase()}},
+        {$match:{username:username?.toLowerCase()}},
         {
           $lookup:{
             from:"subscriptions",
@@ -385,4 +395,54 @@ export const getUserChannelProfile=asyncHandler(async(req,res,next)=>{
      }
 
      return res.status(200).json(new APiResponce(200,channel[0],"channel does not fetched"));
+})
+
+ 
+
+
+export const getUserWatchHistory=asyncHandler(async(req,res,next)=>{
+      
+  const user=await User.aggregate([
+    {$match: {_id:new mongoose.Types.ObjectId(req.user._id)}},
+    {
+      $lookup:{
+        from:"videos",
+        localField:"watchHistory",
+        foreignField:"_id",
+         as:"watchHistory",
+         pipeline:[
+          {
+            $lookup:{
+              from:"users",
+              localField:"owner",
+              foreignField:"_id",
+              as:"owner",
+              pipeline:[
+                {
+                  $project:{
+                    fullName:1,
+                    username:1,
+                    avatar:1,
+                  }
+
+                }
+              ]
+
+            }
+          },{
+              $addFields:{
+                owner:{
+                  $first:"$owner",
+                }
+              }
+          }
+         ]
+      }
+    } 
+    
+  ])
+
+  return res.status(200).json(new APiResponce(200,user[0].watchHistory,"watch history fetch succeccfull"))
+
+
 })
