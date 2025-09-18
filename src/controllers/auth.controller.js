@@ -8,7 +8,7 @@ export const verifyjwt=asyncHandler(async(req,res,next)=>{
 try {
   
     const token =req.cookies?.acccessToken || req.header("Authorization")?.replace("Bearer","");
-    console.log("token",token);
+    // console.log("token",token);
 
     if(!token){
         throw new ApiError(401,"Unauthorized request");
@@ -18,14 +18,16 @@ try {
     if(!decodedUser){
         throw new ApiError(500,"somthing went wromg");
     }
+    // console.log(decodedUser);
 
-    const user=User.findById(decodedUser._id);
+    const user= await User.findById(decodedUser._id);
+    
 
     if (!user) {
         throw new ApiError(401,"user does not exist");
     }
-     
-    req.user=user;
+    //  console.log("user from verifyjwt",user);
+      req.user=user;
     next();
 
     

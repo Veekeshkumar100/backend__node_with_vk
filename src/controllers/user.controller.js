@@ -235,9 +235,18 @@ export const  refreashAccessToken=asyncHandler(async(req, res) => {
 });
 
 export  const  changeCurrentPassword=asyncHandler(async(req,res,next)=>{
+  // console.log("curUser",req.user);
    const {oldpassword,newpassword}=req.body;
-      
+   console.log(oldpassword,newpassword);
+
+   if(!oldpassword || !newpassword){
+     throw new ApiError(400,"All fields are required");
+   }
+
            const user=await User.findById(req.user._id);
+      if(!user){
+        throw new ApiError(404,"user is not found");
+      }
         
       const isPosswordCurrect= await user.isPosswordCurrect(oldpassword);
       if(!isPosswordCurrect){
@@ -258,6 +267,7 @@ export const getUser=asyncHandler(async(req,res,next)=>{
 
 export const updateUserDetailes=asyncHandler(async(req,res,next)=>{
   const {fullName,email}=req.body;
+  console.log("body",req.body);
   if([fullName,email].some((field)=>field?.trim()==="")){
     throw new ApiError(400,"All the field are required");
   }
@@ -325,8 +335,54 @@ export const getUserChannelProfile=asyncHandler(async(req,res,next)=>{
       throw new ApiError(400,"ChannelName is missing");
     }
 
-    await User.aggregate([
-       $match() 
-    ])
+      const channel=await User.aggregate([
+        {$match:{ChannelName:ChannelName?.toLowerCase()}},
+        {
+          $lookup:{
+            from:"subscriptions",
+            localField:"_id",
+            foreignField:"channel",
+            as:"subcribers"
+        
+        }
+      },
+        {
+          $lookup:{
+            from:"subscriptions",
+            localField:"_id",
+            foreignField:"subcriber",
+            as:"subcribedTo"
+        }
+      },
+        {
+          $addFields:{
+            subscriberCount:{$size:"$subcribers"},
+            channelSubscribedCount:{$size:"$subcribedTo"},
+            isSubscribed:{
+              $cond:{
+                if:{$in:[req.user?._id,"$subcribers.subcriber"]},
+                then:true,
+                else:false,
+              }
+            }
+          }
+        },
+        {$project:{
+          fullName:1,
+          username,
+          subscriberCount:1,
+          channelSubscribedCount:1,
+          isSubscribed:1,
+          avatar:1,
+          coverImage:1,
+          email:1,
+        }},
 
+      
+      ])
+     if(!channel?.length){
+      throw new ApiError(401,"channel does not  exists")
+     }
+
+     return res.status(200).json(new APiResponce(200,channel[0],"channel does not fetched"));
 })
